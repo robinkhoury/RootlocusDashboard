@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive root locus dashboard for ELEN 350 Control Systems.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Root Locus Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: instrument bench. The s-plane is the hero instrument on the left; the step response and a tabbed workbench sit on the right. */
+:root{
+  --bg:#e7ecef; --panel:#f9fbfc; --panel-2:#eef3f5; --ink:#13202a; --ink-2:#4f616e; --ink-3:#7d8e9a;
+  --line:#cfd9e0; --grid:#e2e9ed; --grid-2:#c2ced6;
+  --locus:#1d5bbf; --accent:#d24e0e; --overlay:#6a3fbf; --spec:#0a7d8c;
+  --good:#2b8a3e; --bad:#c62828; --warn:#a36200; --rhp:rgba(198,40,40,.06); --specfill:rgba(10,125,140,.10);
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1317; --panel:#141c21; --panel-2:#1a2329; --ink:#dce6eb; --ink-2:#94a5b1; --ink-3:#66798a;
+  --line:#26333b; --grid:#1b252b; --grid-2:#2c3a43;
+  --locus:#5fa4ff; --accent:#ff8b4d; --overlay:#b598ff; --spec:#3cc8da;
+  --good:#5bd174; --bad:#ff6b6b; --warn:#f5b301; --rhp:rgba(255,107,107,.07); --specfill:rgba(60,200,218,.10);
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0d1317; --panel:#141c21; --panel-2:#1a2329; --ink:#dce6eb; --ink-2:#94a5b1; --ink-3:#66798a;
+  --line:#26333b; --grid:#1b252b; --grid-2:#2c3a43;
+  --locus:#5fa4ff; --accent:#ff8b4d; --overlay:#b598ff; --spec:#3cc8da;
+  --good:#5bd174; --bad:#ff6b6b; --warn:#f5b301; --rhp:rgba(255,107,107,.07); --specfill:rgba(60,200,218,.10);
+  color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--locus);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:grid;grid-template-columns:auto minmax(0,760px);justify-content:space-between;gap:18px 28px;align-items:center;max-width:1560px;margin:0 auto 14px}
+/* formula builder */
+.formula{max-width:1560px;margin:0 auto 14px;padding:12px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:10px 28px;align-items:center}
+.fx-main{min-width:0}
+.fx{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--f-mono);font-size:16px;margin-top:8px;min-width:0}
+.fx-lhs{white-space:nowrap}
+.fx-frac{display:inline-grid;min-width:0;max-width:100%}
+.fx-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;padding:5px 4px}
+.fx-row.num{border-bottom:2px solid var(--ink)}
+.chip{display:inline-flex;align-items:center;padding:3px 4px 3px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2);white-space:nowrap}
+.chip input{font-family:var(--f-mono);font-size:15px;border:0;border-bottom:1.5px dashed var(--ink-3);border-radius:0;background:transparent;text-align:center;padding:0 1px;margin:0 2px;color:var(--locus);font-weight:600}
+.chip input:focus{outline:none;border-bottom:2px solid var(--locus);background:var(--panel)}
+.chip input.sup{font-size:11.5px;align-self:flex-start;margin-top:-5px;color:var(--accent)}
+.chip input.sup:focus{border-bottom-color:var(--accent)}
+.chip input[aria-invalid="true"]{border-bottom-color:var(--bad);color:var(--bad)}
+.chip .x{border:0;background:none;color:var(--ink-3);font-size:15px;padding:0 4px;margin-left:2px;line-height:1}
+.chip .x:hover{color:var(--bad)}
+.chip.dim{opacity:.55}
+.chip.kchip{border-color:var(--accent)}
+.chip.kchip input{color:var(--accent)}
+.addf{border:1px dashed var(--grid-2);background:none;border-radius:7px;padding:4px 8px;font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.addf:hover{border-color:var(--locus);color:var(--locus)}
+.fx-info{font-size:12.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px;min-width:0}
+.fx-info .mono{color:var(--ink);overflow-wrap:anywhere}
+.fx-err{color:var(--bad);font-weight:500}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+h1{font-size:40px;line-height:1;font-weight:700}
+h1 span{color:var(--locus)}
+.tf{min-width:0}
+.tf-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-family:var(--f-mono)}
+.tf-text{font-family:var(--f-mono);font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle}
+.frac .num{border-bottom:1.5px solid var(--ink);padding:0 4px 2px}
+.frac .den{padding:2px 4px 0}
+.gain{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.gain-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.gain-row label{font-family:var(--f-display);font-size:20px;font-weight:600}
+#kInput{width:120px;font-family:var(--f-mono);font-size:16px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2)}
+#kSlider{width:100%;accent-color:var(--accent);margin:6px 0 2px}
+.insight{font-size:13px;color:var(--ink-2)}
+.insight b{color:var(--ink);font-weight:600}
+.pill{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.pill.good{color:var(--good)} .pill.bad{color:var(--bad)} .pill.warn{color:var(--warn)}
+.btn{border:1px solid var(--line);background:var(--panel-2);border-radius:6px;padding:5px 11px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.btn svg{width:12px;height:12px;fill:currentColor}
+
+/* bench */
+.bench{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;max-width:1560px;margin:0 auto;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.plane{padding:10px;position:sticky;top:max(10px,env(safe-area-inset-top,0px))}
+.plane-bar{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.tools{display:flex;gap:4px;flex-wrap:wrap;background:var(--panel-2);padding:3px;border-radius:8px;border:1px solid var(--line)}
+.tool{border:0;background:transparent;border-radius:6px;padding:5px 10px;font-size:13px;color:var(--ink-2);display:inline-flex;align-items:center;gap:6px}
+.tool .g{font-family:var(--f-mono);font-weight:600;font-size:14px}
+.tool[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.plane-wrap{position:relative;height:clamp(360px,64vh,740px);border-radius:8px;overflow:hidden;border:1px solid var(--line);touch-action:none}
+#plane{display:block;width:100%;height:100%}
+.coord{position:absolute;right:8px;bottom:6px;font-family:var(--f-mono);font-size:11px;color:var(--ink-3);pointer-events:none;background:var(--panel);padding:1px 6px;border-radius:4px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--ink-2);margin-top:8px}
+.legend i{font-style:normal;font-family:var(--f-mono);font-weight:600;margin-right:4px}
+.sw{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.hint{font-size:12px;color:var(--ink-3);margin:4px 0 0}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px 0}
+.card-head h2{font-size:20px}
+.resp canvas{display:block;width:100%;height:210px}
+.resp-wrap{padding:4px 10px 0}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:6px}
+.metric{background:var(--panel);padding:7px 10px;min-width:0}
+.metric .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--f-mono)}
+.metric .v{font-family:var(--f-mono);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.approx{padding:9px 14px 12px;font-size:12.5px;color:var(--ink-2)}
+.approx b{color:var(--ink);font-weight:600}
+
+.tabs{display:flex;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:11px 12px 9px;font-family:var(--f-display);font-size:17px;font-weight:600;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel{padding:12px 14px 16px}
+.panel h3{font-size:17px}
+.note{font-size:12.5px;color:var(--ink-2);margin:6px 0 0}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label{font-size:12px;color:var(--ink-2)}
+select,.inp{border:1px solid var(--line);background:var(--panel-2);border-radius:6px;padding:6px 8px}
+.pz-head{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px}
+.pz-row{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 30px;gap:8px;align-items:center;margin-bottom:6px}
+.pz-row .sym{font-family:var(--f-mono);font-weight:600;font-size:16px;text-align:center}
+.pz-row label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-3);font-family:var(--f-mono);min-width:0}
+.pz-row input{width:100%;min-width:0;font-family:var(--f-mono);border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:4px 6px}
+.del{border:1px solid var(--line);background:none;border-radius:5px;height:28px;color:var(--ink-3);font-size:16px;line-height:1}
+.del:hover{color:var(--bad);border-color:var(--bad)}
+.empty{font-size:12.5px;color:var(--ink-3);padding:2px 0 4px}
+
+.rules-bar{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.switch{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.switch input{accent-color:var(--accent);width:16px;height:16px}
+.guide-nav{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 10px;background:var(--panel-2);border-radius:8px}
+.guide-nav span{flex:1;font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;counter-reset:r}
+.rule{border:1px solid var(--line);border-radius:8px;padding:9px 12px 10px;counter-increment:r}
+.rule-h{display:flex;align-items:center;gap:9px}
+.rule-h::before{content:counter(r);font-family:var(--f-mono);font-size:11px;width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;background:var(--panel-2);border:1px solid var(--line);flex:none}
+.rule-h h3{flex:1;font-size:16px}
+.rule-h label{font-size:11.5px;color:var(--overlay);display:flex;align-items:center;gap:4px;font-family:var(--f-mono)}
+.rule-h input{accent-color:var(--overlay)}
+.rule-b{font-size:13px;margin-top:5px}
+.rule-b p{margin:4px 0}
+.eq{font-family:var(--f-mono);font-size:12.5px;background:var(--panel-2);padding:5px 8px;border-radius:5px;margin:5px 0;overflow-x:auto;white-space:nowrap}
+.rule.locked .rule-b{display:none}
+.rule.locked{opacity:.45}
+.rule.current{border-color:var(--overlay)}
+.cand{list-style:none;padding:0;margin:4px 0;font-family:var(--f-mono);font-size:12.5px}
+.cand li{padding:2px 0;display:flex;gap:8px;flex-wrap:wrap}
+.cand .rej{color:var(--ink-3);text-decoration:line-through}
+.tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:4px;border:1px solid currentColor;font-family:var(--f-mono)}
+.tag.ok{color:var(--good)} .tag.no{color:var(--ink-3)}
+.ans{border-radius:3px;transition:filter .2s}
+.quiz .ans:not(.shown){filter:blur(6px);cursor:pointer;background:var(--panel-2);user-select:none}
+.routh{border-collapse:collapse;font-family:var(--f-mono);font-size:12px;margin:6px 0}
+.routh td{padding:2px 10px 2px 0;text-align:right;font-variant-numeric:tabular-nums}
+.routh td:first-child{color:var(--ink-3);text-align:left}
+.routh td:nth-child(2){font-weight:600}
+.routh td.neg{color:var(--bad)}
+.tbl-wrap{overflow-x:auto}
+.ptable{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-size:12.5px;margin:8px 0}
+.ptable th{font-weight:500;color:var(--ink-3);text-align:right;padding:3px 6px;border-bottom:1px solid var(--line);font-size:11px}
+.ptable td{text-align:right;padding:3px 6px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+.ptable th:first-child,.ptable td:first-child{text-align:left}
+.verdict{padding:8px 10px;border-radius:7px;border:1px solid var(--line);font-size:13px;margin:8px 0}
+.verdict.good{border-color:var(--good)} .verdict.bad{border-color:var(--warn)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row .field{flex:1;min-width:110px}
+.results{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:6px}
+.results li{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--f-mono);font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+.checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
+.check{border:1px solid var(--line);border-radius:7px;padding:7px 10px}
+.check .k{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em;font-family:var(--f-mono)}
+.check .v{font-family:var(--f-mono);font-size:14px}
+.check.good{border-color:var(--good)} .check.bad{border-color:var(--bad)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+.foot{max-width:1560px;margin:16px auto 0;font-size:12px;color:var(--ink-3)}
+
+@media (max-width:1080px){.top{grid-template-columns:auto minmax(0,1fr)}}
+@media (max-width:900px){.formula{grid-template-columns:minmax(0,1fr)}.bench{grid-template-columns:minmax(0,1fr)}.plane{position:static}.plane-wrap{height:clamp(320px,58vh,560px)}}
+@media (max-width:560px){.top{grid-template-columns:minmax(0,1fr)}h1{font-size:32px}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.metric:last-child{grid-column:span 2}.checks{grid-template-columns:minmax(0,1fr)}.tool .lbl{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div>
+    <div class="eyebrow">ELEN 350 · Control Systems</div>
+    <h1>Root Locus <span>Lab</span></h1>
+  </div>
+  <div class="gain">
+    <div class="gain-row">
+      <label for="kInput">Gain K</label>
+      <input id="kInput" type="number" step="any" min="0">
+      <button class="btn" id="playBtn" type="button"><svg viewBox="0 0 10 10"><path d="M1 0 L9 5 L1 10Z"/></svg><span>Sweep K</span></button>
+      <span id="stabPill" class="pill"></span>
+    </div>
+    <input id="kSlider" type="range" min="0" max="1000" step="1" aria-label="Gain K, logarithmic slider">
+    <div id="insight" class="insight"></div>
+  </div>
+</header>
+
+<section class="card formula" aria-label="Transfer function builder">
+  <div class="fx-main">
+    <div class="tf-label">Open-loop transfer function · unity negative feedback · type into any slot</div>
+    <div class="fx" id="fx"></div>
+  </div>
+  <div class="fx-info" id="fxInfo"></div>
+</section>
+
+<main class="bench">
+  <section class="card plane">
+    <div class="plane-bar">
+      <div class="tools" role="toolbar" aria-label="s-plane tools">
+        <button class="tool" data-tool="move" aria-pressed="true" type="button"><span class="g">✥</span><span class="lbl">Move / pan</span></button>
+        <button class="tool" data-tool="pole" aria-pressed="false" type="button"><span class="g">×</span><span class="lbl">Add pole</span></button>
+        <button class="tool" data-tool="zero" aria-pressed="false" type="button"><span class="g">○</span><span class="lbl">Add zero</span></button>
+        <button class="tool" data-tool="erase" aria-pressed="false" type="button"><span class="g">⌫</span><span class="lbl">Erase</span></button>
+        <button class="tool" data-tool="probe" aria-pressed="false" type="button"><span class="g">∠</span><span class="lbl">Probe</span></button>
+      </div>
+      <button class="btn" id="fitBtn" type="button">Fit view</button>
+    </div>
+    <div class="plane-wrap" id="planeWrap"><canvas id="plane" aria-label="s-plane with root locus"></canvas><div class="coord" id="coord">s = —</div></div>
+    <div class="legend">
+      <span><i>×</i>open-loop pole (K = 0)</span>
+      <span><i>○</i>open-loop zero (K → ∞)</span>
+      <span><span class="sw" style="background:var(--locus)"></span>root locus</span>
+      <span><span class="sw" style="background:var(--accent);height:8px;width:8px;border-radius:50%"></span>closed-loop poles at current K</span>
+      <span><span class="sw" style="background:var(--overlay)"></span>construction rules</span>
+      <span><span class="sw" style="background:var(--rhp);border:1px solid var(--bad)"></span>unstable half-plane</span>
+    </div>
+    <p class="hint" id="toolHint"></p>
+  </section>
+
+  <aside class="side">
+    <section class="card resp">
+      <div class="card-head"><h2>Closed-loop step response</h2><button class="btn" id="pinBtn" type="button">Pin for comparison</button></div>
+      <div class="resp-wrap"><canvas id="resp" aria-label="closed-loop step response"></canvas></div>
+      <div class="metrics" id="metrics"></div>
+      <div class="approx" id="approx"></div>
+    </section>
+
+    <section class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="t-system" aria-selected="true" data-tab="system" type="button">System</button>
+        <button class="tab" role="tab" id="t-rules" aria-selected="false" data-tab="rules" type="button">Rules</button>
+        <button class="tab" role="tab" id="t-probe" aria-selected="false" data-tab="probe" type="button">Probe</button>
+        <button class="tab" role="tab" id="t-design" aria-selected="false" data-tab="design" type="button">Design</button>
+      </div>
+
+      <div class="panel" id="p-system" role="tabpanel">
+        <div class="field">
+          <label for="preset">Example system</label>
+          <select id="preset"></select>
+          <p class="note" id="presetNote"></p>
+        </div>
+        <div class="pz-head"><h3>Open-loop poles</h3><button class="btn" id="addPole" type="button">Add pole</button></div>
+        <div id="poleList"></div>
+        <div class="pz-head"><h3>Open-loop zeros</h3><button class="btn" id="addZero" type="button">Add zero</button></div>
+        <div id="zeroList"></div>
+        <p class="note">You can also type G(s) straight into the formula bar at the top. Enter Im &gt; 0 for a complex pair; its conjugate is added for you. You can also drag poles and zeros on the s-plane and watch the locus reshape. The loop is G(s) = K·N(s)/D(s) with unity negative feedback, so the closed-loop poles solve D(s) + K·N(s) = 0.</p>
+      </div>
+
+      <div class="panel" id="p-rules" role="tabpanel" hidden>
+        <div class="rules-bar">
+          <label class="switch"><input type="checkbox" id="guided"> Guided build</label>
+          <label class="switch"><input type="checkbox" id="quiz"> Hide answers until clicked</label>
+        </div>
+        <div class="guide-nav" id="guideNav" hidden>
+          <button class="btn" id="gPrev" type="button">Back</button>
+          <span id="gStep"></span>
+          <button class="btn primary" id="gNext" type="button">Next rule</button>
+        </div>
+        <ol class="rules" id="rulesList"></ol>
+      </div>
+
+      <div class="panel" id="p-probe" role="tabpanel" hidden>
+        <p class="note" style="margin-top:0">A point s lies on the root locus only if the <b>angle condition</b> holds: Σ∠(s − zᵢ) − Σ∠(s − pⱼ) = ±180°(2k+1). The gain that puts a closed-loop pole there comes from the <b>magnitude condition</b>: K = Π|s − pⱼ| / Π|s − zᵢ|. Move the cursor over the s-plane to test any point; click to pin it (clicks near the locus snap onto it).</p>
+        <div id="probeOut"></div>
+      </div>
+
+      <div class="panel" id="p-design" role="tabpanel" hidden>
+        <p class="note" style="margin-top:0">Turn time-domain specs into an allowed region of the s-plane, then pick the gain where the locus enters it.</p>
+        <div class="row">
+          <div class="field"><label for="osIn">Max overshoot %OS</label><input class="inp mono" id="osIn" type="number" min="0.1" max="99" step="0.5" value="10"></div>
+          <div class="field"><label for="tsIn">Max settling time Ts (s, 2%)</label><input class="inp mono" id="tsIn" type="number" min="0.01" step="0.1" value="8"></div>
+        </div>
+        <label class="switch"><input type="checkbox" id="specOn" checked> Shade the allowed region on the s-plane</label>
+        <div class="eq" id="specEq"></div>
+        <button class="btn primary" id="findK" type="button">Find K where the locus meets the ζ line</button>
+        <ul class="results" id="kResults"></ul>
+        <h3 style="margin-top:10px">Spec check at the current K</h3>
+        <div class="checks" id="specChecks"></div>
+        <p class="note" id="designTip"></p>
+      </div>
+    </section>
+  </aside>
+</main>
+<p class="foot">Root locus computed numerically by polynomial continuation over K from 10⁻⁵ to 10⁹, with rule values (asymptotes, breakaway, jω crossings, departure angles) solved analytically from D(s) and N(s). Step response simulated by RK4 on the closed-loop state-space model.</p>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/*MATH-START*/
+const C={
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1]],
+  mul:(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]],
+  div:(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return[(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d]},
+  abs:a=>Math.hypot(a[0],a[1]),
+  arg:a=>Math.atan2(a[1],a[0])
+};
+// polynomials: coefficient arrays in ascending powers of s
+function pEval(p,s){let r=[0,0];for(let i=p.length-1;i>=0;i--){r=C.mul(r,s);r[0]+=p[i];}return r;}
+function pFromRoots(rs){let p=[[1,0]];for(const r of rs){const q=Array.from({length:p.length+1},()=>[0,0]);for(let i=0;i<p.length;i++){q[i+1]=C.add(q[i+1],p[i]);q[i]=C.sub(q[i],C.mul(r,p[i]));}p=q;}return p.map(c=>c[0]);}
+function pAdd(a,b){const n=Math.max(a.length,b.length),r=[];for(let i=0;i<n;i++)r.push((a[i]||0)+(b[i]||0));return r;}
+function pScale(a,k){return a.map(x=>x*k);}
+function pMul(a,b){const r=new Array(a.length+b.length-1).fill(0);for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++)r[i+j]+=a[i]*b[j];return r;}
+function pDer(a){return a.length<2?[0]:a.slice(1).map((x,i)=>x*(i+1));}
+function pTrim(a,tol){a=a.slice();const mx=Math.max(0,...a.map(Math.abs))||1;while(a.length>1&&Math.abs(a[a.length-1])<=tol*mx)a.pop();return a;}
+
+// Durand–Kerner root finder; init = previous roots for continuation
+function polyRoots(pAsc,init){
+  const p=pTrim(pAsc,1e-13);const n=p.length-1;if(n<1)return[];
+  const lead=p[n];const a=p.map(x=>x/lead);
+  if(n===1)return[[-a[0],0]];
+  let z;
+  if(init&&init.length===n){
+    z=init.map((v,i)=>{const m=1e-7*(1+C.abs(v));return[v[0]+m*Math.cos(1.3+i*2.1),v[1]+m*Math.sin(1.3+i*2.1)];});
+  }else{
+    let R=0;for(let i=0;i<n;i++)R=Math.max(R,Math.pow(Math.abs(a[i]),1/(n-i)));R=Math.max(R,.5);
+    z=[];for(let i=0;i<n;i++){const t=2*Math.PI*i/n+.4;z.push([R*Math.cos(t),R*Math.sin(t)]);}
+  }
+  for(let it=0;it<1000;it++){
+    let maxd=0;
+    for(let i=0;i<n;i++){
+      const num=pEval(a,z[i]);let den=[1,0];
+      for(let j=0;j<n;j++)if(j!==i)den=C.mul(den,C.sub(z[i],z[j]));
+      if(den[0]===0&&den[1]===0)den=[1e-14,1e-14];
+      const d=C.div(num,den);z[i]=C.sub(z[i],d);
+      const m=C.abs(d)/(1+C.abs(z[i]));if(m>maxd)maxd=m;
+    }
+    if(!(maxd>1e-14))break;
+  }
+  return z;
+}
+const maxRe=R=>R.length?Math.max(...R.map(r=>r[0])):-Infinity;
+
+function analyze(P,Z){
+  const n=P.length,m=Z.length;const D=pFromRoots(P),N=pFromRoots(Z);
+  const L=1+Math.max(0,...P.map(C.abs),...Z.map(C.abs));
+  const Kof=s=>{const r=C.div(pEval(D,s),pEval(N,s));return[-r[0],-r[1]];};
+  // real-axis segments
+  const reals=[...P.filter(p=>p[1]===0).map(p=>p[0]),...Z.filter(z=>z[1]===0).map(z=>z[0])];
+  const crit=[...new Set(reals)].sort((a,b)=>b-a);
+  const segs=[];
+  for(let i=0;i<crit.length;i++){
+    const hi=crit[i],lo=i+1<crit.length?crit[i+1]:-Infinity;
+    const mid=isFinite(lo)?(hi+lo)/2:hi-1;
+    const cnt=reals.filter(x=>x>mid).length;
+    if(cnt%2===1){if(segs.length&&segs[segs.length-1][0]===hi)segs[segs.length-1][0]=lo;else segs.push([lo,hi]);}
+  }
+  // asymptotes
+  const na=n-m;let asym=null;
+  if(na>0){const sp=P.reduce((a,p)=>a+p[0],0),sz=Z.reduce((a,z)=>a+z[0],0);
+    asym={na,sigma:(sp-sz)/na,sumP:sp,sumZ:sz,angles:[...Array(na)].map((_,k)=>(2*k+1)*180/na)};}
+  // breakaway / break-in: N D' - D N' = 0
+  const Q=pTrim(pAdd(pMul(N,pDer(D)),pScale(pMul(D,pDer(N)),-1)),1e-12);
+  const cand=[];
+  const qr=Q.length>1?polyRoots(Q):[];
+  for(const s0 of qr){
+    const s=[s0[0],s0[1]];const isReal=Math.abs(s[1])<1e-5*(1+Math.abs(s[0]));if(isReal)s[1]=0;
+    if(!isReal&&s[1]<0)continue; // list the upper member of a conjugate pair once
+    const K=Kof(s);let status='ok',reason='',type='';
+    const Kreal=Math.abs(K[1])<=1e-4*Math.max(1,Math.abs(K[0]));
+    if(!isFinite(K[0]))(status='rej',reason='lies on a zero');
+    else if(!Kreal)(status='rej',reason='K would be complex');
+    else if(Math.abs(K[0])<1e-7*Math.max(1,L))(status='rej',reason='K = 0 (repeated open-loop pole)');
+    else if(K[0]<0)(status='rej',reason='K < 0, not on this locus');
+    if(status==='ok'){
+      if(isReal){const d=1e-4*L;const Kl=Kof([s[0]-d,0])[0],Kr=Kof([s[0]+d,0])[0];
+        type=(K[0]>=Kl&&K[0]>=Kr)?'breakaway':(K[0]<=Kl&&K[0]<=Kr)?'break-in':'meeting point';}
+      else type='complex meeting point (±)';
+    }
+    const dup=cand.find(c=>C.abs(C.sub(c.s,s))<1e-4*L);
+    if(dup){dup.mult=(dup.mult||1)+1;if(dup.status==='ok'&&dup.isReal)dup.type=`${dup.mult+1}-branch meeting point`;continue;}
+    cand.push({s,K:K[0],status,reason,type,isReal});
+  }
+  cand.sort((a,b)=>b.s[0]-a.s[0]);
+  // jω-axis crossings: Re D(jω)·Im N(jω) − Im D(jω)·Re N(jω) = 0
+  const split=p=>{const re=new Array(p.length).fill(0),im=new Array(p.length).fill(0);
+    p.forEach((c,k)=>{switch(k%4){case 0:re[k]=c;break;case 1:im[k]=c;break;case 2:re[k]=-c;break;case 3:im[k]=-c;}});return[re,im];};
+  const [Dr,Di]=split(D),[Nr,Ni]=split(N);
+  const Qw=pTrim(pAdd(pMul(Dr,Ni),pScale(pMul(Di,Nr),-1)),1e-11);
+  const jw=[];
+  if(Qw.length>1){for(const w0 of polyRoots(Qw)){
+    if(Math.abs(w0[1])>1e-5*(1+Math.abs(w0[0])))continue;const w=w0[0];if(w<=1e-6*L)continue;
+    const K=Kof([0,w]);if(!isFinite(K[0])||K[0]<=1e-9||Math.abs(K[1])>1e-4*Math.max(1,K[0]))continue;
+    if(jw.some(c=>Math.abs(c.w-w)<1e-5*L))continue;jw.push({w,K:K[0]});}}
+  if(Math.abs(N[0])>1e-12&&Math.abs(D[0])>1e-12){const K0=-D[0]/N[0];if(K0>1e-9)jw.push({w:0,K:K0});}
+  jw.sort((a,b)=>a.K-b.K);
+  // departure / arrival angles
+  const deg=x=>x*180/Math.PI;
+  const wrap=a=>{a=((a+180)%360+360)%360-180;return a<=-180?a+360:a;};
+  const same=(a,b)=>C.abs(C.sub(a,b))<1e-9*L;
+  const dep=[];
+  P.forEach(p=>{if(p[1]<=1e-12||dep.some(d=>d.kind==='pole'&&same(d.s,p)))return;
+    const q=P.filter(x=>same(x,p)).length;let sp=0,sz=0;const tp=[],tz=[];
+    P.forEach(x=>{if(same(x,p))return;const a=deg(C.arg(C.sub(p,x)));sp+=a;tp.push(a);});
+    Z.forEach(z=>{if(same(z,p))return;const a=deg(C.arg(C.sub(p,z)));sz+=a;tz.push(a);});
+    dep.push({kind:'pole',s:p,q,sp,sz,tp,tz,theta:wrap((180-sp+sz)/q)});});
+  Z.forEach(z=>{if(z[1]<=1e-12||dep.some(d=>d.kind==='zero'&&same(d.s,z)))return;
+    const q=Z.filter(x=>same(x,z)).length;let sp=0,sz=0;const tp=[],tz=[];
+    P.forEach(x=>{if(same(x,z))return;const a=deg(C.arg(C.sub(z,x)));sp+=a;tp.push(a);});
+    Z.forEach(x=>{if(same(x,z))return;const a=deg(C.arg(C.sub(z,x)));sz+=a;tz.push(a);});
+    dep.push({kind:'zero',s:z,q,sp,sz,tp,tz,theta:wrap((180+sp-sz)/q)});});
+  // stability intervals in K
+  const crits=[...new Set(jw.map(c=>+c.K.toPrecision(10)))].sort((a,b)=>a-b);
+  const bounds=[0,...crits,Infinity];const intervals=[];
+  for(let i=0;i<bounds.length-1;i++){const lo=bounds[i],hi=bounds[i+1];
+    const Kt=lo===0?(isFinite(hi)?hi/10:1):(isFinite(hi)?Math.sqrt(lo*hi):lo*10);
+    const st=maxRe(polyRoots(pAdd(D,pScale(N,Kt))))< -1e-9;
+    if(intervals.length&&intervals[intervals.length-1].stable===st)intervals[intervals.length-1].hi=hi;else intervals.push({lo,hi,stable:st});}
+  return{n,m,D,N,L,Kof,segs,asym,Q,cand,jw,dep,intervals};
+}
+
+function computeLocus(P,D,N,L,fine){
+  const n=P.length;if(!n)return[];
+  const solve=(K,init)=>polyRoots(pAdd(D,pScale(N,K)),init);
+  const thr=fine?.012:.035,maxDepth=fine?8:5;
+  const branches=P.map(p=>[[p[0],p[1],0]]);
+  const match=(prev,next)=>{const pairs=[];
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++)pairs.push([C.abs(C.sub(prev[i],next[j])),i,j]);
+    pairs.sort((a,b)=>a[0]-b[0]);const out=new Array(n),used=new Array(n).fill(false);let k=0;
+    for(const [,i,j] of pairs){if(out[i]||used[j])continue;out[i]=next[j];used[j]=true;if(++k===n)break;}return out;};
+  const step=(K0,R0,K1,d)=>{const R1=match(R0,solve(K1,R0));let mx=0;
+    for(let i=0;i<n;i++){const r=C.abs(R0[i]);if(r>40*L)continue;const dd=C.abs(C.sub(R1[i],R0[i]))/(L+r);if(dd>mx)mx=dd;}
+    if(mx>thr&&d<maxDepth){const Km=K0>0?Math.sqrt(K0*K1):K1*.1;const Rm=step(K0,R0,Km,d+1);return step(Km,Rm,K1,d+1);}
+    R1.forEach((r,i)=>branches[i].push([r[0],r[1],K1]));return R1;};
+  const NS=fine?300:110,lo=-5,hi=9;let R=P.map(p=>[p[0],p[1]]),K0=0;
+  for(let i=0;i<=NS;i++){const K1=Math.pow(10,lo+(hi-lo)*i/NS);R=step(K0,R,K1,0);K0=K1;}
+  return branches;
+}
+
+function simulate(D,N,K,R){
+  const ct=pTrim(pAdd(D,pScale(N,K)),1e-14);const n=ct.length-1;const lead=ct[n];const a=ct.map(x=>x/lead);
+  const b=new Array(n+1).fill(0);N.forEach((x,i)=>{if(i<=n)b[i]=x*K/lead;});
+  const dd=b[n];const bp=b.map((x,i)=>x-dd*a[i]);
+  const mr=maxRe(R);const stable=mr< -1e-9;const marginal=!stable&&mr<1e-7;
+  const lam=Math.max(...R.map(C.abs),1e-6);
+  let tEnd;
+  if(stable){const slow=Math.min(...R.map(r=>-r[0]));tEnd=Math.min(Math.max(7/slow,.02),400);}
+  else if(!marginal)tEnd=Math.min(Math.max(5/mr,.5),60);
+  else{const wi=Math.max(...R.filter(r=>r[0]>-1e-7).map(r=>Math.abs(r[1])),0);tEnd=wi>0?Math.min(8*Math.PI/wi,60):20;}
+  let dt=Math.min(tEnd/1500,1/lam),steps=Math.ceil(tEnd/dt);if(steps>60000){steps=60000;dt=tEnd/steps;}
+  const f=x=>{const dx=new Float64Array(n);for(let i=0;i<n-1;i++)dx[i]=x[i+1];let s=1;for(let i=0;i<n;i++)s-=a[i]*x[i];dx[n-1]=s;return dx;};
+  const out=x=>{let y=dd;for(let i=0;i<n;i++)y+=bp[i]*x[i];return y;};
+  let x=new Float64Array(n);const every=Math.max(1,Math.floor(steps/900));const t=[0],y=[out(x)];
+  for(let k=1;k<=steps;k++){
+    const k1=f(x),x2=x.map((v,i)=>v+dt/2*k1[i]),k2=f(x2),x3=x.map((v,i)=>v+dt/2*k2[i]),k3=f(x3),x4=x.map((v,i)=>v+dt*k3[i]),k4=f(x4);
+    x=x.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+    if(k%every===0||k===steps){const yy=out(x);t.push(k*dt);y.push(yy);if(Math.abs(yy)>1e6)break;}
+  }
+  const res={t,y,stable,marginal,tEnd,yss:NaN,os:NaN,tp:NaN,ts:NaN,tr:NaN,settled:false};
+  if(stable&&Math.abs(a[0])>1e-14){
+    const yss=b[0]/a[0];res.yss=yss;
+    let im=0;for(let i=1;i<y.length;i++)if(y[i]>y[im])im=i;
+    if(yss>1e-12){res.os=Math.max(0,(y[im]-yss)/yss*100);res.tp=res.os>0.01?t[im]:NaN;
+      let i10=-1,i90=-1;for(let i=0;i<y.length;i++){if(i10<0&&y[i]>=.1*yss)i10=i;if(i90<0&&y[i]>=.9*yss){i90=i;break;}}
+      if(i10>=0&&i90>=0)res.tr=t[i90]-t[i10];}
+    const band=.02*Math.abs(yss);let last=-1;for(let i=y.length-1;i>=0;i--)if(Math.abs(y[i]-yss)>band){last=i;break;}
+    if(last<y.length-2){res.ts=last<0?0:t[last+1];res.settled=true;}
+  }
+  return res;
+}
+function dominant(R){
+  if(!R.length)return null;const s=[...R].sort((a,b)=>b[0]-a[0]);const d=s[0];
+  const pair=Math.abs(d[1])>1e-7*(1+C.abs(d));const wn=C.abs(d);const zeta=wn>0?-d[0]/wn:1;
+  const next=s.find(r=>r[0]<d[0]-1e-6*(1+Math.abs(d[0])));
+  const ratio=next&&d[0]<0?next[0]/d[0]:Infinity;
+  const est={};if(d[0]<0){est.ts=4/(-d[0]);if(pair){est.os=100*Math.exp(-zeta*Math.PI/Math.sqrt(1-zeta*zeta));est.tp=Math.PI/Math.abs(d[1]);}else{est.os=0;}}
+  return{d,pair,wn,zeta,ratio,est};
+}
+function routh(cAsc){
+  const a=cAsc.slice().reverse();const n=a.length-1;const w=Math.ceil((n+1)/2);const rows=[];const notes=[];
+  const r0=[],r1=[];for(let i=0;i<w;i++){r0.push(a[2*i]??0);r1.push(a[2*i+1]??0);}rows.push(r0,r1);
+  const sc=Math.max(...a.map(Math.abs))||1;
+  for(let k=2;k<=n;k++){
+    const A=rows[k-2];let B=rows[k-1];
+    if(B.every(x=>Math.abs(x)<1e-10*sc)){const ord=n-(k-2);B=A.map((x,i)=>x*(ord-2*i));rows[k-1]=B;notes.push(`row s^${n-k+1} was all zeros, replaced by the derivative of the auxiliary polynomial (symmetric roots, e.g. on the jω axis)`);}
+    if(Math.abs(B[0])<1e-10*sc){B=B.slice();B[0]=1e-9*sc;rows[k-1]=B;notes.push(`zero pivot in row s^${n-k+1} replaced by a small ε`);}
+    const R=[];for(let i=0;i<w;i++)R.push((B[0]*(A[i+1]??0)-A[0]*(B[i+1]??0))/B[0]);rows.push(R);
+  }
+  let changes=0;for(let k=1;k<rows.length;k++){if(Math.sign(rows[k][0])!==Math.sign(rows[k-1][0])&&rows[k][0]!==0&&rows[k-1][0]!==0)changes++;}
+  return{rows:rows.slice(0,n+1),changes,notes,n};
+}
+/*MATH-END*/
+
+// ---------- formatting ----------
+function fmt(x,p=3){if(!isFinite(x))return x>0?'∞':x<0?'−∞':'—';if(Math.abs(x)<1e-9)return'0';const a=Math.abs(x);
+  let s=(a>=1e4||a<1e-3)?x.toExponential(2):String(+x.toPrecision(a>=100?Math.max(p,4):p+ (a<1?0:1)));return s.replace('-','−');}
+const fmtC=s=>{const re=Math.abs(s[0])<1e-9?0:s[0],im=Math.abs(s[1])<1e-9?0:s[1];if(im===0)return fmt(re);if(re===0)return(im<0?'−':'')+'j'+fmt(Math.abs(im));return fmt(re)+(im<0?' − j':' + j')+fmt(Math.abs(im));};
+const fmtA=a=>fmt(a,4)+'°';
+function polyStr(c){const t=[];for(let k=c.length-1;k>=0;k--){const v=c[k];if(Math.abs(v)<1e-10*(Math.max(...c.map(Math.abs))||1))continue;
+  const mag=Math.abs(v);let coef=(mag===1&&k>0)?'':fmt(mag);const pw=k===0?'':k===1?'s':'s'+sup(k);
+  t.push({neg:v<0,s:coef+pw});}
+  if(!t.length)return'0';return t.map((x,i)=>i===0?(x.neg?'−':'')+x.s:(x.neg?' − ':' + ')+x.s).join('');}
+const SUP={0:'⁰',1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶',7:'⁷',8:'⁸',9:'⁹'};
+const sup=k=>String(k).split('').map(d=>SUP[d]).join('');
+function factorStr(list){
+  if(!list.length)return'1';const map=new Map();
+  for(const r of list){let key;
+    if(r.im>1e-12){const b=-2*r.re,c=r.re*r.re+r.im*r.im;key='(s²'+(Math.abs(b)<1e-9?'':(b<0?' − ':' + ')+fmt(Math.abs(b))+'s')+' + '+fmt(c)+')';}
+    else if(Math.abs(r.re)<1e-12)key='s';else key='(s '+(r.re<0?'+ ':'− ')+fmt(Math.abs(r.re))+')';
+    map.set(key,(map.get(key)||0)+1);}
+  let out='';if(map.has('s')){out+='s'+(map.get('s')>1?sup(map.get('s')):'');map.delete('s');}
+  for(const [k,v] of map)out+=k+(v>1?sup(v):'');return out;
+}
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// ---------- state ----------
+const PRESETS=[
+  {name:'K / s(s+1)(s+2) — classic type-1 plant',poles:[{re:0,im:0},{re:-1,im:0},{re:-2,im:0}],zeros:[],K:1,
+   note:'Three poles, no zeros: three asymptotes at ±60° and 180°. Two poles break away near −0.42 and cross the jω axis at ±j√2 when K = 6.'},
+  {name:'K(s+2) / (s²+2s+3) — the circle',poles:[{re:-1,im:Math.SQRT2}],zeros:[{re:-2,im:0}],K:1,
+   note:'Complex poles with one zero. The complex branches trace an arc of a circle centred on the zero, then break in at −2 − √3 ≈ −3.73.'},
+  {name:'K / s(s+4)(s²+4s+20) — three meeting points',poles:[{re:0,im:0},{re:-4,im:0},{re:-2,im:4}],zeros:[],K:30,
+   note:'A textbook case where dK/ds = 0 has three valid solutions: −2 and −2 ± j2.45. Departure angles from the complex poles are ±90°.'},
+  {name:'K(s−3)(s−5) / (s+1)(s+2) — non-minimum phase',poles:[{re:-1,im:0},{re:-2,im:0}],zeros:[{re:3,im:0},{re:5,im:0}],K:0.2,
+   note:'Right-half-plane zeros pull the locus into instability at high gain. Break away between the poles, break in between the zeros.'},
+  {name:'K(s+1) / s²(s+9) — lead zero on a double integrator',poles:[{re:0,im:0},{re:0,im:0},{re:-9,im:0}],zeros:[{re:-1,im:0}],K:20,
+   note:'Without the zero, a double integrator is never stable under proportional control. The zero bends the locus into the left half-plane.'},
+  {name:'K(s+2) / (s−1)(s+4) — stabilising an unstable plant',poles:[{re:1,im:0},{re:-4,im:0}],zeros:[{re:-2,im:0}],K:4,
+   note:'One open-loop pole is unstable. The loop becomes stable only once K exceeds 2, where the locus crosses the origin.'}
+];
+const S={poles:[],zeros:[],K:1,tool:'move',guided:false,step:0,quiz:false,revealed:new Set(),
+  ov:{segs:true,asym:true,brk:true,jw:true,dep:true},spec:{os:10,ts:8,on:true},probe:null,probePinned:false,pinned:null,playing:false};
+let P=[],Z=[],A=null,LOCUS=[],CL=[],SIM=null,DOM=null,view={cx:0,cy:0,s:60,init:false},kRange={lo:-2,hi:2},kResults=[];
+const expand=list=>{const o=[];for(const r of list){o.push([r.re,r.im]);if(r.im>1e-12)o.push([r.re,-r.im]);}return o;};
+const $=s=>document.querySelector(s);
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
+
+// ---------- core update flow ----------
+function systemChanged(fine=true,opts={}){
+  P=expand(S.poles);Z=expand(S.zeros);
+  A=analyze(P,Z);LOCUS=computeLocus(P,A.D,A.N,A.L,fine);
+  const Kc=A.jw.length?Math.max(...A.jw.map(c=>c.K)):(A.cand.filter(c=>c.status==='ok').length?Math.max(...A.cand.filter(c=>c.status==='ok').map(c=>c.K)):1);
+  kRange={lo:Math.log10(Kc)-3,hi:Math.log10(Kc)+1.6};
+  if(!opts.skipLists)renderLists();
+  if(!opts.fromFormula){fxError='';F={num:rootsToSide(S.zeros),den:rootsToSide(S.poles)};renderFormula();}
+  renderFxInfo();
+  if(fine){renderRules();kResults=[];renderKResults();S.revealed.clear();}
+  kChanged(true);
+}
+function kChanged(fromSystem=false){
+  CL=P.length?polyRoots(pAdd(A.D,pScale(A.N,S.K))):[];
+  SIM=P.length?simulate(A.D,A.N,S.K,CL):null;DOM=dominant(CL);
+  syncK();renderInsight();renderMetrics();renderRouth();renderProbe();renderSpecChecks();
+  drawPlane();drawResp();
+}
+function setK(K,from){S.K=Math.max(0,K);kChanged();}
+function syncK(){
+  const ki=$('#kInput');if(document.activeElement!==ki)ki.value=+S.K.toPrecision(5);
+  const fk=$('#fK');if(fk&&document.activeElement!==fk){fk.value=+S.K.toPrecision(5);fk.style.width=Math.max(fk.value.length,1)+1+'ch';}
+  const sl=$('#kSlider');if(document.activeElement!==sl||S.playing){
+    sl.value=S.K<=0?0:Math.max(1,Math.min(1000,Math.round((Math.log10(S.K)-kRange.lo)/(kRange.hi-kRange.lo)*1000)));}
+}
+const sliderToK=v=>v<=0?0:Math.pow(10,kRange.lo+(kRange.hi-kRange.lo)*v/1000);
+
+// ---------- header ----------
+// ---------- formula builder ----------
+// F.num / F.den: {pow: roots at the origin, lin:[{a,m}] for (s + a)^m, quad:[{b,c,m}] for (s² + bs + c)^m}
+let F={num:{pow:0,lin:[],quad:[]},den:{pow:0,lin:[],quad:[]}};
+const r6=x=>{const v=+(+x).toPrecision(6);return Object.is(v,-0)?0:v;};
+function rootsToSide(list){
+  const s={pow:0,lin:[],quad:[]};const tol=1e-9;
+  for(const r of list){
+    if(Math.abs(r.re)<tol&&r.im<=tol){s.pow++;continue;}
+    if(r.im<=tol){const a=r6(-r.re);const f=s.lin.find(x=>x.a===a);f?f.m++:s.lin.push({a,m:1});}
+    else{const b=r6(-2*r.re),c=r6(r.re*r.re+r.im*r.im);const f=s.quad.find(x=>x.b===b&&x.c===c);f?f.m++:s.quad.push({b,c,m:1});}
+  }
+  s.lin.sort((x,y)=>x.a-y.a);return s;
+}
+function sideToRoots(s){
+  const o=[];for(let i=0;i<s.pow;i++)o.push({re:0,im:0});
+  for(const f of s.lin)for(let i=0;i<f.m;i++)o.push({re:f.a===0?0:-f.a,im:0});
+  for(const f of s.quad){const d=f.b*f.b-4*f.c;for(let i=0;i<f.m;i++){
+    if(d>=0)o.push({re:(-f.b+Math.sqrt(d))/2,im:0},{re:(-f.b-Math.sqrt(d))/2,im:0});
+    else o.push({re:-f.b/2,im:Math.sqrt(-d)/2});}}
+  return o;
+}
+function fxInput(side,type,i,field,val,cls,ph,label){
+  const v=String(val);
+  return `<input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" class="${cls}" id="fx-${side}-${type}-${i}-${field}" data-side="${side}" data-type="${type}" data-i="${i}" data-f="${field}" value="${esc(v)}" placeholder="${ph}" aria-label="${label}" style="width:${Math.max(v.length,ph.length,1)+1}ch">`;
+}
+function renderFormula(){
+  const row=side=>{
+    const s=F[side];const word=side==='num'?'zero':'pole';
+    let h=`<span class="chip${s.pow?'':' dim'}" title="Number of ${word}s at s = 0">s${fxInput(side,'pow',0,'pow',s.pow||'','sup','0',`Power of s: ${word}s at the origin`)}</span>`;
+    s.lin.forEach((f,i)=>{h+=`<span class="chip">(s + ${fxInput(side,'lin',i,'a',f.a,'','a',`Constant a in (s + a)`)})${fxInput(side,'lin',i,'m',f.m===1?'':f.m,'sup','1','Power: how many times this factor repeats')}<button class="x" type="button" data-fxdel="${side}" data-type="lin" data-i="${i}" aria-label="Remove factor">×</button></span>`;});
+    s.quad.forEach((f,i)=>{h+=`<span class="chip">(s² + ${fxInput(side,'quad',i,'b',f.b,'','b','Coefficient b in s² + bs + c')}s + ${fxInput(side,'quad',i,'c',f.c,'','c','Constant c in s² + bs + c')})${fxInput(side,'quad',i,'m',f.m===1?'':f.m,'sup','1','Power: how many times this factor repeats')}<button class="x" type="button" data-fxdel="${side}" data-type="quad" data-i="${i}" aria-label="Remove factor">×</button></span>`;});
+    h+=`<button class="addf" type="button" data-fxadd="${side}" data-type="lin">+ (s + a)</button><button class="addf" type="button" data-fxadd="${side}" data-type="quad">+ (s² + bs + c)</button>`;
+    return h;
+  };
+  const kv=+S.K.toPrecision(5);
+  $('#fx').innerHTML=`<span class="fx-lhs">G(s) =</span><span class="chip kchip" title="Loop gain K (same as the gain slider)">K =<input type="text" inputmode="decimal" id="fK" autocomplete="off" aria-label="Gain K" value="${kv}" style="width:${String(kv).length+1}ch"></span><span>·</span><span class="fx-frac"><span class="fx-row num">${row('num')}</span><span class="fx-row den">${row('den')}</span></span>`;
+}
+function rootList(list){
+  if(!list.length)return'none';const groups=[];
+  for(const r of list){const key=r.im>1e-12?`${fmt(r.re)} ± j${fmt(r.im)}`:fmt(r.re);const g=groups.find(x=>x.k===key);g?g.n++:groups.push({k:key,n:1});}
+  return groups.map(g=>g.k+(g.n>1?` (×${g.n})`:'')).join(', ');
+}
+let fxError='';
+function renderFxInfo(){
+  const n=P.length,m=Z.length,type=S.poles.filter(r=>Math.abs(r.re)<1e-9&&r.im<=1e-9).length;
+  $('#fxInfo').innerHTML=`<div>Zeros (roots of the top): <span class="mono">${rootList(S.zeros)}</span></div>
+    <div>Poles (roots of the bottom): <span class="mono">${rootList(S.poles)}</span></div>
+    <div>n = ${n} poles, m = ${m} zeros, type ${type} system. A negative value such as (s + −3) puts the root at +3.</div>
+    ${fxError?`<div class="fx-err">${esc(fxError)}</div>`:''}`;
+}
+function checkPZ(np,nz){
+  const n=order(np),m=order(nz);
+  if(n<1)return'The bottom needs at least one pole.';
+  if(n>10)return'Keep the bottom to 10 poles or fewer.';
+  if(m>n)return'The top has more zeros than the bottom has poles. Add poles or remove zeros.';
+  return'';
+}
+function applyFormula(){
+  const np=sideToRoots(F.den),nz=sideToRoots(F.num);
+  fxError=checkPZ(np,nz);
+  if(fxError){renderFxInfo();return;}
+  S.poles=np;S.zeros=nz;customised();systemChanged(true,{fromFormula:true});
+  if(W&&[...P,...Z].some(p=>sx(p[0])<12||sx(p[0])>W-12||sy(p[1])<12||sy(p[1])>H-12)){fitView();drawPlane();}
+}
+$('#fx').addEventListener('input',e=>{
+  const el=e.target;
+  if(el.id==='fK'){el.style.width=Math.max(el.value.length,1)+1+'ch';const v=Number(el.value.trim());const ok=el.value.trim()!==''&&isFinite(v)&&v>=0;el.setAttribute('aria-invalid',!ok);if(ok)setK(v);return;}
+  if(!el.dataset.side)return;
+  el.style.width=Math.max(el.value.length,el.placeholder.length,1)+1+'ch';
+  const f=el.dataset.f,raw=el.value.trim();let v,ok;
+  if(f==='pow'||f==='m'){v=raw===''?(f==='pow'?0:1):Number(raw);ok=Number.isInteger(v)&&v>=(f==='pow'?0:1)&&v<=8;}
+  else{v=Number(raw);ok=raw!==''&&isFinite(v)&&Math.abs(v)<1e6;}
+  el.setAttribute('aria-invalid',!ok);
+  if(!ok){fxError=f==='pow'||f==='m'?'Powers must be whole numbers from '+(f==='pow'?'0':'1')+' to 8.':'Enter a number in each box.';renderFxInfo();return;}
+  const side=F[el.dataset.side];
+  if(f==='pow'){side.pow=v;el.closest('.chip').classList.toggle('dim',v===0);}
+  else side[el.dataset.type][+el.dataset.i][f]=v;
+  applyFormula();
+});
+$('#fx').addEventListener('focusout',e=>{if(e.target.id==='fK')syncK();});
+$('#fx').addEventListener('click',e=>{
+  const add=e.target.closest('[data-fxadd]'),del=e.target.closest('[data-fxdel]');
+  if(!add&&!del)return;
+  const next=JSON.parse(JSON.stringify(F));
+  if(add){const s=next[add.dataset.fxadd];
+    if(add.dataset.type==='lin'){const a=s.lin.length?Math.max(...s.lin.map(x=>x.a))+1:1;s.lin.push({a,m:1});}
+    else s.quad.push({b:2,c:5,m:1});}
+  else next[del.dataset.fxdel][del.dataset.type].splice(+del.dataset.i,1);
+  const err=checkPZ(sideToRoots(next.den),sideToRoots(next.num));
+  if(err){toast(err);return;}
+  F=next;fxError='';renderFormula();applyFormula();
+  if(add){const s=F[add.dataset.fxadd],t=add.dataset.type,i=s[t].length-1;const inp=document.getElementById(`fx-${add.dataset.fxadd}-${t}-${i}-${t==='lin'?'a':'b'}`);if(inp){inp.focus();inp.select();}}
+});
+function stabilityOf(R){const m=maxRe(R);return m< -1e-9?'stable':m<1e-7?'marginal':'unstable';}
+function renderInsight(){
+  const st=stabilityOf(CL);const pill=$('#stabPill');
+  pill.className='pill '+(st==='stable'?'good':st==='marginal'?'warn':'bad');pill.textContent=st==='stable'?'Stable':st==='marginal'?'Marginally stable':'Unstable';
+  let txt='';
+  if(DOM){const d=DOM.d;
+    if(DOM.pair)txt+=`Dominant pair at <b class="mono">${fmtC([d[0],Math.abs(d[1])])}</b> (and conjugate): ζ = <b class="mono">${fmt(DOM.zeta)}</b>, ωₙ = <b class="mono">${fmt(DOM.wn)}</b> rad/s. `;
+    else txt+=`Dominant pole is real at <b class="mono">s = ${fmt(d[0])}</b>, so the response has no oscillation from it. `;
+    if(st==='unstable'){const nr=CL.filter(r=>r[0]>1e-7).length;txt+=`<b>${nr}</b> closed-loop pole${nr>1?'s are':' is'} in the right half-plane. `;}
+  }
+  // next event above current K
+  const ev=[];
+  A.cand.filter(c=>c.status==='ok').forEach(c=>ev.push({K:c.K,t:c.type==='breakaway'?`poles meet at s = ${fmt(c.s[0])} and leave the real axis`:c.type==='break-in'?`a complex pair rejoins the real axis at s = ${fmt(c.s[0])}`:`branches meet at s = ${fmtC(c.s)}`}));
+  A.jw.forEach(c=>{const below=stabilityOf(polyRoots(pAdd(A.D,pScale(A.N,c.K*0.999))));const above=stabilityOf(polyRoots(pAdd(A.D,pScale(A.N,c.K*1.001))));
+    const where=c.w>0?`±j${fmt(c.w)}`:'the origin';
+    ev.push({K:c.K,t:below==='stable'&&above!=='stable'?`a branch crosses ${where} into the right half-plane`:below!=='stable'&&above==='stable'?`the last unstable branch crosses ${where} and the loop becomes stable`:`a branch crosses the jω axis at ${where}`});});
+  ev.sort((a,b)=>a.K-b.K);const nx=ev.find(e=>e.K>S.K*1.0005);
+  txt+=nx?`Next: at <b class="mono">K = ${fmt(nx.K)}</b>, ${nx.t}.`:`No further events: as K → ∞ the poles head to the zeros or out along the asymptotes.`;
+  $('#insight').innerHTML=txt;
+}
+
+// ---------- pole/zero lists ----------
+function renderLists(){
+  const mk=(kind,list)=>list.length?list.map((r,i)=>`<div class="pz-row"><span class="sym">${kind==='pole'?'×':'○'}</span>
+    <label for="pz-${kind}-${i}-re">Re<input id="pz-${kind}-${i}-re" type="number" step="0.1" value="${+r.re.toPrecision(6)}" data-kind="${kind}" data-i="${i}" data-f="re"></label>
+    <label for="pz-${kind}-${i}-im">Im ±<input id="pz-${kind}-${i}-im" type="number" step="0.1" min="0" value="${+r.im.toPrecision(6)}" data-kind="${kind}" data-i="${i}" data-f="im"></label>
+    <button class="del" type="button" data-del="${kind}" data-i="${i}" aria-label="Remove ${kind}">×</button></div>`).join(''):`<div class="empty">No ${kind}s. ${kind==='zero'?'N(s) = 1.':''}</div>`;
+  $('#poleList').innerHTML=mk('pole',S.poles);$('#zeroList').innerHTML=mk('zero',S.zeros);
+}
+const order=list=>list.reduce((a,r)=>a+(r.im>1e-12?2:1),0);
+function canChange(newPoles,newZeros){
+  const n=order(newPoles),m=order(newZeros);
+  if(n<1){toast('Keep at least one pole.');return false;}
+  if(n>10){toast('Up to 10 poles keeps the solver fast and the picture readable.');return false;}
+  if(m>n){toast('A proper loop needs at least as many poles as zeros.');return false;}
+  return true;
+}
+document.addEventListener('change',e=>{
+  const el=e.target;if(!el.dataset||!el.dataset.kind)return;
+  const list=el.dataset.kind==='pole'?S.poles:S.zeros;const i=+el.dataset.i;let v=parseFloat(el.value);if(!isFinite(v))v=0;
+  const copy=list.map(r=>({...r}));if(el.dataset.f==='im')v=Math.abs(v);copy[i][el.dataset.f]=v;
+  const np=el.dataset.kind==='pole'?copy:S.poles,nz=el.dataset.kind==='zero'?copy:S.zeros;
+  if(!canChange(np,nz)){renderLists();return;}
+  list[i][el.dataset.f]=v;$('#preset').value='';$('#presetNote').textContent='Custom system.';systemChanged(true,{skipLists:true});
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-del]');if(!b)return;
+  const kind=b.dataset.del,i=+b.dataset.i;removePZ(kind,i);
+});
+function removePZ(kind,i){
+  const np=kind==='pole'?S.poles.filter((_,j)=>j!==i):S.poles,nz=kind==='zero'?S.zeros.filter((_,j)=>j!==i):S.zeros;
+  if(!canChange(np,nz))return;S.poles=np;S.zeros=nz;customised();systemChanged();
+}
+function customised(){$('#preset').value='';$('#presetNote').textContent='Custom system.';}
+$('#addPole').onclick=()=>{const np=[...S.poles,{re:Math.min(0,...S.poles.map(r=>r.re))-1,im:0}];if(canChange(np,S.zeros)){S.poles=np;customised();systemChanged();}};
+$('#addZero').onclick=()=>{const nz=[...S.zeros,{re:Math.min(0,...S.poles.map(r=>r.re),...S.zeros.map(r=>r.re))-1,im:0}];if(canChange(S.poles,nz)){S.zeros=nz;customised();systemChanged();}};
+$('#preset').innerHTML='<option value="">Custom</option>'+PRESETS.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join('');
+function loadPreset(i){const p=PRESETS[i];S.poles=p.poles.map(r=>({...r}));S.zeros=p.zeros.map(r=>({...r}));S.K=p.K;S.pinned=null;S.probe=null;S.probePinned=false;
+  $('#preset').value=String(i);$('#presetNote').textContent=p.note;S.step=0;systemChanged();fitView();drawPlane();}
+$('#preset').onchange=e=>{if(e.target.value!=='')loadPreset(+e.target.value);};
+
+// ---------- rules ----------
+function ans(key,html){return`<span class="ans${S.revealed.has(key)?' shown':''}" data-key="${key}" tabindex="0">${html}</span>`;}
+const RULE_OV=[null,'segs','asym','brk','jw','dep',null];
+function renderRules(){
+  const a=A;const n=a.n,m=a.m;const items=[];
+  items.push({t:'Branches and end points',b:`<p>The locus has one branch per closed-loop pole: ${ans('n',`<b>n = ${n}</b> branches`)}. They start at the open-loop poles (K = 0). ${ans('m',`<b>${m}</b> end on the finite zeros and <b>${n-m}</b> go to infinity`)} as K → ∞. The locus is symmetric about the real axis because D(s) + K·N(s) has real coefficients.</p>`});
+  const segTxt=a.segs.length?a.segs.map(s=>`${isFinite(s[0])?'['+fmt(s[0]):'(−∞'}, ${fmt(s[1])}]`).join(' ∪ '):'none';
+  items.push({t:'Real-axis segments',b:`<p>A real point is on the locus when the number of real poles and zeros to its right is odd (complex pairs cancel in angle).</p><div class="eq">${ans('segs',segTxt)}</div>`});
+  if(a.asym){const as=a.asym;
+    items.push({t:'Asymptotes',b:`<p>${n} − ${m} = ${as.na} branch${as.na>1?'es':''} leave along straight-line asymptotes.</p>
+    <div class="eq">σₐ = (Σpⱼ − Σzᵢ)/(n − m) = (${fmt(as.sumP)} − (${fmt(as.sumZ)}))/${as.na} = ${ans('sig',fmt(as.sigma))}</div>
+    <div class="eq">θₖ = (2k+1)·180°/(n − m) = ${ans('ang',as.angles.map(x=>fmt(x,4)+'°').join(', '))}</div>`});}
+  else items.push({t:'Asymptotes',b:`<p>n = m, so every branch ends on a finite zero and there are no asymptotes.</p>`});
+  const candHtml=a.cand.length?`<ul class="cand">${a.cand.map(c=>`<li class="${c.status==='rej'?'rej':''}">s = ${fmtC(c.s)}${!c.isReal?' (and conjugate)':''} → ${c.status==='ok'?`K = ${fmt(c.K)} <span class="tag ok">${c.type}</span>`:`<span class="tag no">rejected</span> ${c.reason}`}</li>`).join('')}</ul>`:'<p>dK/ds has no roots, so no branches meet off the poles and zeros.</p>';
+  items.push({t:'Breakaway and break-in points',b:`<p>On the locus K(s) = −D(s)/N(s). Branches meet where dK/ds = 0, which reduces to</p>
+    <div class="eq">N·D′ − D·N′ = ${polyStr(a.Q)} = 0</div><p>Candidates and their gains (only real, positive K are valid):</p>${ans('brk',candHtml)}`});
+  const jwHtml=a.jw.length?a.jw.map(c=>`s = ${c.w>0?'±j'+fmt(c.w):'0'} at K = ${fmt(c.K)}`).join('<br>'):'The locus never crosses the jω axis for K &gt; 0.';
+  const iv=a.intervals.map(v=>`<span style="color:var(--${v.stable?'good':'bad'})">${fmt(v.lo)} &lt; K &lt; ${fmt(v.hi)}: ${v.stable?'stable':'unstable'}</span>`).join('<br>');
+  items.push({t:'Imaginary-axis crossings and stability range',b:`<p>Put s = jω in D(s) + K·N(s) = 0 and set real and imaginary parts to zero, or find the K that zeroes a row of the Routh array.</p>
+    <div class="eq">${ans('jw',jwHtml)}</div><div class="eq">${ans('iv',iv)}</div><p>Routh array at the current K:</p><div class="tbl-wrap" id="routhBox"></div>`});
+  const depHtml=a.dep.length?a.dep.map(d=>{const sgn=d.kind==='pole'?'180° − Σ∠(from poles) + Σ∠(from zeros)':'180° + Σ∠(from poles) − Σ∠(from zeros)';
+    return`<p><b>${d.kind==='pole'?'Departure from pole':'Arrival at zero'} ${fmtC(d.s)}</b>${d.q>1?` (multiplicity ${d.q}, divide by ${d.q})`:''}</p>
+    <div class="eq">θ = ${sgn}<br>= ${d.kind==='pole'?`180° − (${d.tp.map(x=>fmt(x,4)).join(' + ')||'0'}) + (${d.tz.map(x=>fmt(x,4)).join(' + ')||'0'})`:`180° + (${d.tp.map(x=>fmt(x,4)).join(' + ')||'0'}) − (${d.tz.map(x=>fmt(x,4)).join(' + ')||'0'})`} = ${ans('dep'+fmtC(d.s),fmtA(d.theta))}</div>`;}).join('')+'<p>The conjugate uses the negative angle.</p>':'<p>No complex poles or zeros, so no departure or arrival angles are needed.</p>';
+  items.push({t:'Angles of departure and arrival',b:depHtml});
+  items.push({t:'Sketch the full locus',b:`<p>Join the pieces: start at each ×, follow the real-axis segments, leave the axis at breakaway points, bend toward the asymptotes, and end at the ○ or at infinity. Calibrate any point with the magnitude condition K = Π|s − pⱼ| / Π|s − zᵢ| (Probe tab).</p>`});
+  $('#rulesList').innerHTML=items.map((it,i)=>{const ov=RULE_OV[i];
+    const locked=S.guided&&i>S.step;const cur=S.guided&&i===S.step;
+    return`<li class="rule${locked?' locked':''}${cur?' current':''}"><div class="rule-h"><h3>${it.t}</h3>${ov&&!S.guided?`<label><input type="checkbox" data-ov="${ov}" ${S.ov[ov]?'checked':''}> on plot</label>`:''}</div><div class="rule-b">${it.b}</div></li>`;}).join('');
+  $('#rulesList').classList.toggle('quiz',S.quiz);
+  $('#guideNav').hidden=!S.guided;$('#gStep').textContent=`Rule ${S.step+1} of 7`;$('#gNext').textContent=S.step>=6?'Done':'Next rule';$('#gPrev').disabled=S.step===0;
+  renderRouth();
+}
+function renderRouth(){
+  const box=document.getElementById('routhBox');if(!box||!A)return;
+  const r=routh(pAdd(A.D,pScale(A.N,S.K)));
+  box.innerHTML=`<table class="routh">${r.rows.map((row,i)=>`<tr><td>s${sup(r.n-i)}</td>${row.map((v,j)=>`<td class="${j===0&&v<0?'neg':''}">${fmt(v)}</td>`).join('')}</tr>`).join('')}</table>
+    <p class="note">${r.changes} sign change${r.changes===1?'':'s'} in the first column → ${r.changes} closed-loop pole${r.changes===1?'':'s'} in the right half-plane at K = ${fmt(S.K)}.${r.notes.length?' Note: '+r.notes.join('; ')+'.':''}</p>`;
+}
+document.addEventListener('click',e=>{const a=e.target.closest('.ans');if(!a||!S.quiz)return;S.revealed.add(a.dataset.key);a.classList.add('shown');});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('ans')){e.preventDefault();e.target.click();}});
+$('#rulesList').addEventListener('change',e=>{const ov=e.target.dataset.ov;if(ov){S.ov[ov]=e.target.checked;drawPlane();}});
+$('#guided').onchange=e=>{S.guided=e.target.checked;S.step=0;renderRules();drawPlane();};
+$('#quiz').onchange=e=>{S.quiz=e.target.checked;S.revealed.clear();renderRules();};
+$('#gNext').onclick=()=>{if(S.step>=6){S.guided=false;$('#guided').checked=false;}else S.step++;renderRules();drawPlane();};
+$('#gPrev').onclick=()=>{S.step=Math.max(0,S.step-1);renderRules();drawPlane();};
+const ovOn=k=>{if(!S.guided)return S.ov[k];return RULE_OV.indexOf(k)<=S.step;};
+const locusOn=()=>!S.guided||S.step>=6;
+
+// ---------- metrics ----------
+function renderMetrics(){
+  const m=$('#metrics');if(!SIM){m.innerHTML='';return;}
+  const cell=(k,v)=>`<div class="metric"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  if(SIM.stable){
+    m.innerHTML=cell('%OS',isFinite(SIM.os)?fmt(SIM.os)+'%':'—')+cell('Peak time',isFinite(SIM.tp)?fmt(SIM.tp)+' s':'—')+cell('Settling 2%',SIM.settled?fmt(SIM.ts)+' s':'&gt; '+fmt(SIM.tEnd)+' s')+cell('Rise 10–90',isFinite(SIM.tr)?fmt(SIM.tr)+' s':'—')+cell('Final value',fmt(SIM.yss)+` <span style="color:var(--ink-3);font-size:12px">eₛₛ ${fmt(1-SIM.yss)}</span>`);
+  }else m.innerHTML=cell('%OS','—')+cell('Peak time','—')+cell('Settling 2%','never')+cell('Rise 10–90','—')+cell('Final value',SIM.marginal?'oscillates':'unbounded');
+  const ap=$('#approx');
+  if(!DOM||!SIM.stable){ap.innerHTML=SIM.marginal?'Poles on the jω axis: the output oscillates forever at the crossing frequency.':'The response grows without bound. Lower K (or reshape the locus) until every closed-loop pole is in the left half-plane.';return;}
+  const e=DOM.est;const good=DOM.ratio>=5;
+  const nearZero=Z.some(z=>z[0]<0&&Math.abs(z[0])<5*Math.abs(DOM.d[0])&&C.abs(C.sub(z,DOM.d))<4*Math.abs(DOM.d[0]));
+  ap.innerHTML=`<b>Second-order estimate</b> from the dominant ${DOM.pair?'pair':'pole'}: %OS ≈ <span class="mono">${fmt(e.os)}%</span>${DOM.pair?`, Tₚ ≈ <span class="mono">${fmt(e.tp)} s</span>`:''}, Tₛ ≈ 4/|σ| = <span class="mono">${fmt(e.ts)} s</span>. `+
+   (isFinite(DOM.ratio)?(good?`The next pole is ${fmt(DOM.ratio)}× farther left, so the estimate should be close.`:`The next pole is only ${fmt(DOM.ratio)}× farther left (rule of thumb: 5×), so expect the simulation to differ.`):'Only the dominant mode is present.')+
+   (nearZero?' A zero sits close to the dominant poles and will add overshoot.':'');
+}
+
+// ---------- probe ----------
+function probeAt(s){
+  let angZ=0,angP=0,magP=1,magZ=1;const rowsP=[],rowsZ=[];
+  for(const p of P){const v=C.sub(s,p);const a=C.arg(v)*180/Math.PI;angP+=a;magP*=C.abs(v);rowsP.push({r:p,a,l:C.abs(v)});}
+  for(const z of Z){const v=C.sub(s,z);const a=C.arg(v)*180/Math.PI;angZ+=a;magZ*=C.abs(v);rowsZ.push({r:z,a,l:C.abs(v)});}
+  const tot=angZ-angP;let w=((tot%360)+360)%360;const off=Math.abs(w-180);
+  return{s,tot,w,off,on:off<1.5,K:magZ>0?magP/magZ:Infinity,rowsP,rowsZ};
+}
+function renderProbe(){
+  const box=$('#probeOut');if(!box)return;
+  if(!S.probe){box.innerHTML='<p class="empty">Hover over the s-plane to place the probe.</p>';return;}
+  const pr=probeAt(S.probe);
+  const rows=[...pr.rowsZ.map(r=>`<tr><td>○ ${fmtC(r.r)}</td><td>+${fmt(r.a,4)}°</td><td>${fmt(r.l)}</td></tr>`),...pr.rowsP.map(r=>`<tr><td>× ${fmtC(r.r)}</td><td>−${fmt(r.a,4)}°</td><td>${fmt(r.l)}</td></tr>`)].join('');
+  box.innerHTML=`<div class="eq">s = ${fmtC(pr.s)} ${S.probePinned?'(pinned)':'(following cursor)'}</div>
+   <div class="tbl-wrap"><table class="ptable"><thead><tr><th>vector from</th><th>angle contribution</th><th>length</th></tr></thead><tbody>${rows}</tbody></table></div>
+   <div class="eq">Σ∠zeros − Σ∠poles = ${fmt(pr.tot,4)}° ≡ ${fmt(pr.w,4)}° (mod 360°)</div>
+   <div class="verdict ${pr.on?'good':'bad'}">${pr.on?`On the locus: the angles add to an odd multiple of 180° (off by ${fmt(pr.off,2)}°).`:`Not on the locus: the angle misses 180° by ${fmt(pr.off,3)}°. No positive K puts a closed-loop pole here.`}</div>
+   <div class="eq">K = Π|s − pⱼ| / Π|s − zᵢ| = ${fmt(pr.K,4)}</div>
+   <div class="row">${pr.on?`<button class="btn primary" id="useProbeK" type="button">Set K = ${fmt(pr.K,4)}</button>`:''}${S.probePinned?`<button class="btn" id="unpin" type="button">Follow cursor again</button>`:''}</div>`;
+  const u=$('#useProbeK');if(u)u.onclick=()=>setK(pr.K);
+  const up=$('#unpin');if(up)up.onclick=()=>{S.probePinned=false;renderProbe();drawPlane();};
+}
+
+// ---------- design ----------
+function specZeta(){const os=Math.min(Math.max(S.spec.os,.01),99.9)/100;const l=Math.log(os);return -l/Math.sqrt(Math.PI*Math.PI+l*l);}
+function renderSpec(){
+  const z=specZeta(),sg=4/S.spec.ts;
+  $('#specEq').innerHTML=`ζ = −ln(%OS/100)/√(π² + ln²(%OS/100)) = ${fmt(z)} → θ = cos⁻¹ζ = ${fmt(Math.acos(z)*180/Math.PI,4)}° from the negative real axis<br>σ = 4/Tₛ = ${fmt(sg)} → poles must satisfy Re(s) ≤ −${fmt(sg)}`;
+  renderSpecChecks();
+}
+function renderSpecChecks(){
+  const box=$('#specChecks');if(!box||!SIM)return;
+  const okOS=SIM.stable&&isFinite(SIM.os)&&SIM.os<=S.spec.os,okTs=SIM.stable&&SIM.settled&&SIM.ts<=S.spec.ts;
+  box.innerHTML=`<div class="check ${okOS?'good':'bad'}"><div class="k">Overshoot ≤ ${fmt(S.spec.os)}%</div><div class="v">${SIM.stable&&isFinite(SIM.os)?fmt(SIM.os)+'%':'—'} ${okOS?'✓ met':'✗ missed'}</div></div>
+   <div class="check ${okTs?'good':'bad'}"><div class="k">Settling ≤ ${fmt(S.spec.ts)} s</div><div class="v">${SIM.stable&&SIM.settled?fmt(SIM.ts)+' s':'—'} ${okTs?'✓ met':'✗ missed'}</div></div>`;
+  let tip='';
+  if(okOS&&okTs)tip='Both specs are met at this gain.';
+  else if(kResults.length&&kResults.every(r=>-r.s[0]<4/S.spec.ts))tip='The ζ line is reached, but too close to the jω axis to meet Tₛ. Proportional gain alone cannot do it: drag a zero to the left of the dominant poles (lead or PD compensation) and watch the locus bend into the shaded region.';
+  else if(!okOS&&!okTs)tip='Find where the locus enters the shaded region, then set K there. If it never enters, the plant needs compensation.';
+  else tip=okOS?'Overshoot is fine; settling is too slow. Move the closed-loop poles farther left.':'Settling is fine; overshoot is too high. Lower K toward the ζ line.';
+  $('#designTip').textContent=tip;
+}
+function findKonZeta(){
+  const z=specZeta(),dir=[-z,Math.sqrt(1-z*z)];const out=[];
+  const g=r=>{const s=[r*dir[0],r*dir[1]];return C.div(pEval(A.N,s),pEval(A.D,s));};
+  const rmin=1e-3*A.L,rmax=60*A.L,N=6000;let pr=rmin,pg=g(pr);
+  for(let i=1;i<=N;i++){const r=rmin*Math.pow(rmax/rmin,i/N);const gg=g(r);
+    if(Math.sign(gg[1])!==Math.sign(pg[1])&&isFinite(gg[1])&&isFinite(pg[1])){let a=pr,b=r,ga=pg;
+      for(let k=0;k<60;k++){const c=(a+b)/2,gc=g(c);if(Math.sign(gc[1])===Math.sign(ga[1])){a=c;ga=gc;}else b=c;}
+      const rr=(a+b)/2,gr=g(rr);if(gr[0]<0&&Math.abs(gr[1])<1e-6*C.abs(gr)+1e-12){const K=1/C.abs(gr);out.push({s:[rr*dir[0],rr*dir[1]],K});}}
+    pr=r;pg=gg;}
+  kResults=out;renderKResults();renderSpecChecks();drawPlane();
+}
+function renderKResults(){
+  const ul=$('#kResults');if(!ul)return;
+  if(!kResults.length){ul.innerHTML='';return;}
+  ul.innerHTML=kResults.map((r,i)=>`<li><span>s = ${fmtC(r.s)} · K = ${fmt(r.K,4)} · Tₛ ≈ ${fmt(4/Math.abs(r.s[0]))} s</span><button class="btn" data-applyk="${i}" type="button">Use this K</button></li>`).join('');
+}
+$('#kResults').addEventListener('click',e=>{const b=e.target.closest('[data-applyk]');if(b)setK(kResults[+b.dataset.applyk].K);});
+$('#findK').onclick=()=>{findKonZeta();if(!kResults.length)toast('The locus never meets this ζ line for K > 0.');};
+$('#osIn').oninput=e=>{const v=parseFloat(e.target.value);if(v>0&&v<100){S.spec.os=v;kResults=[];renderKResults();renderSpec();drawPlane();}};
+$('#tsIn').oninput=e=>{const v=parseFloat(e.target.value);if(v>0){S.spec.ts=v;renderSpec();drawPlane();}};
+$('#specOn').onchange=e=>{S.spec.on=e.target.checked;drawPlane();};
+
+// ---------- tabs & tools ----------
+let activeTab='system';
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{activeTab=t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));
+  ['system','rules','probe','design'].forEach(k=>$('#p-'+k).hidden=k!==activeTab);
+  if(activeTab==='probe')setTool('probe');else if(S.tool==='probe')setTool('move');drawPlane();});
+const HINTS={move:'Drag a pole or zero to move it (complex pairs move together). Drag empty space to pan; scroll to zoom. Hold Alt to turn off grid snapping.',
+  pole:'Click to add a pole. Click off the real axis to add a complex pair.',zero:'Click to add a zero. Off the real axis adds a complex pair.',
+  erase:'Click a pole or zero to remove it.',probe:'Move over the s-plane to test the angle condition at any point. Click to pin; clicks near the locus snap onto it.'};
+function setTool(t){S.tool=t;document.querySelectorAll('.tool').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));$('#toolHint').textContent=HINTS[t];
+  $('#plane').style.cursor=t==='move'?'grab':t==='probe'?'crosshair':'copy';drawPlane();}
+document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+
+// ---------- gain controls ----------
+$('#kSlider').oninput=e=>{stopPlay();setK(sliderToK(+e.target.value));};
+$('#kInput').onchange=e=>{const v=parseFloat(e.target.value);if(isFinite(v)&&v>=0)setK(v);};
+let playRAF=null;
+function stopPlay(){S.playing=false;cancelAnimationFrame(playRAF);$('#playBtn span').textContent='Sweep K';$('#playBtn').classList.remove('on');}
+$('#playBtn').onclick=()=>{if(S.playing){stopPlay();return;}S.playing=true;$('#playBtn span').textContent='Stop';$('#playBtn').classList.add('on');
+  const t0=performance.now(),dur=7000;const tick=now=>{if(!S.playing)return;const u=Math.min(1,(now-t0)/dur);setK(sliderToK(u*1000));if(u<1)playRAF=requestAnimationFrame(tick);else stopPlay();};playRAF=requestAnimationFrame(tick);};
+$('#pinBtn').onclick=()=>{if(!SIM)return;S.pinned={t:SIM.t.slice(),y:SIM.y.slice(),K:S.K};toast(`Pinned the response at K = ${fmt(S.K)}.`);drawResp();};
+
+// ---------- s-plane canvas ----------
+const cv=$('#plane'),ctx=cv.getContext('2d');let W=0,H=0;
+const sx=x=>W/2+(x-view.cx)*view.s,sy=y=>H/2-(y-view.cy)*view.s;
+const dx=px=>(px-W/2)/view.s+view.cx,dy=py=>-(py-H/2)/view.s+view.cy;
+function tok(){const cs=getComputedStyle(document.documentElement);const g=k=>cs.getPropertyValue(k).trim();
+  return{panel:g('--panel'),ink:g('--ink'),ink2:g('--ink-2'),ink3:g('--ink-3'),grid:g('--grid'),grid2:g('--grid-2'),locus:g('--locus'),accent:g('--accent'),ov:g('--overlay'),spec:g('--spec'),specfill:g('--specfill'),rhp:g('--rhp'),bad:g('--bad'),good:g('--good'),mono:g('--f-mono')};}
+function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(raw)));const f=raw/p;return(f<1.5?1:f<3.5?2:f<7.5?5:10)*p;}
+function fitView(){
+  if(!W)return;const pts=[[0,0],...P,...Z];
+  A.cand.filter(c=>c.status==='ok').forEach(c=>pts.push(c.s));A.jw.forEach(c=>pts.push([0,c.w]));if(A.asym)pts.push([A.asym.sigma,0]);
+  let x0=Math.min(...pts.map(p=>p[0])),x1=Math.max(...pts.map(p=>p[0])),ym=Math.max(...pts.map(p=>Math.abs(p[1])));
+  let w=Math.max(x1-x0,2),h=Math.max(2*ym,2);x0-=w*.3;x1+=w*.3;w=x1-x0;h*=1.4;
+  view.s=Math.min(W/w,H/h);view.cx=(x0+x1)/2;view.cy=0;view.init=true;
+}
+function resize(){const r=cv.parentElement.getBoundingClientRect();const dpr=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(!view.init&&A)fitView();drawPlane();}
+new ResizeObserver(resize).observe($('#planeWrap'));
+
+function drawPlane(){
+  if(!W||!A)return;const T=tok();ctx.clearRect(0,0,W,H);ctx.fillStyle=T.panel;ctx.fillRect(0,0,W,H);
+  const x0=sx(0);ctx.fillStyle=T.rhp;ctx.fillRect(Math.max(0,x0),0,W-Math.max(0,x0),H);
+  // grid
+  const st=niceStep(70/view.s);ctx.lineWidth=1;ctx.font=`10px ${T.mono}`;ctx.textBaseline='top';
+  const xa=Math.floor(dx(0)/st)*st,xb=dx(W),ya=Math.floor(dy(H)/st)*st,yb=dy(0);
+  ctx.strokeStyle=T.grid;ctx.beginPath();
+  for(let x=xa;x<=xb;x+=st){const p=Math.round(sx(x))+.5;ctx.moveTo(p,0);ctx.lineTo(p,H);}
+  for(let y=ya;y<=yb;y+=st){const p=Math.round(sy(y))+.5;ctx.moveTo(0,p);ctx.lineTo(W,p);}ctx.stroke();
+  ctx.strokeStyle=T.grid2;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(0,sy(0));ctx.lineTo(W,sy(0));ctx.moveTo(sx(0),0);ctx.lineTo(sx(0),H);ctx.stroke();
+  ctx.fillStyle=T.ink3;const ly=Math.min(Math.max(sy(0)+4,4),H-14),lx=Math.min(Math.max(sx(0)+4,4),W-40);
+  for(let x=xa;x<=xb;x+=st){if(Math.abs(x)<st/2)continue;ctx.fillText(fmt(+x.toPrecision(6)),sx(x)+3,ly);}
+  for(let y=ya;y<=yb;y+=st){if(Math.abs(y)<st/2)continue;ctx.fillText('j'+fmt(+y.toPrecision(6)),lx,sy(y)+2);}
+  ctx.fillText('σ',W-14,ly);ctx.fillText('jω',lx,4);
+  // spec region
+  if(S.spec.on&&activeTab==='design'||S.spec.on&&kResults.length){
+    const z=specZeta(),sg=4/S.spec.ts,tn=Math.sqrt(1-z*z)/z;const xl=dx(-10);
+    ctx.fillStyle=T.specfill;ctx.beginPath();ctx.moveTo(sx(-sg),sy(sg*tn));ctx.lineTo(sx(xl),sy(-xl*tn));ctx.lineTo(sx(xl),sy(xl*tn));ctx.lineTo(sx(-sg),sy(-sg*tn));ctx.closePath();ctx.fill();
+    ctx.strokeStyle=T.spec;ctx.setLineDash([5,4]);ctx.lineWidth=1.3;ctx.beginPath();
+    const R=Math.max(W,H)/view.s*2;ctx.moveTo(sx(0),sy(0));ctx.lineTo(sx(-R*z),sy(R*Math.sqrt(1-z*z)));ctx.moveTo(sx(0),sy(0));ctx.lineTo(sx(-R*z),sy(-R*Math.sqrt(1-z*z)));
+    ctx.moveTo(sx(-sg),0);ctx.lineTo(sx(-sg),H);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=T.spec;ctx.font=`11px ${T.mono}`;const lr=Math.min(W,H)/view.s*.38;ctx.fillText(`ζ = ${fmt(z)}`,sx(-lr*z)+6,sy(lr*Math.sqrt(1-z*z))-4);ctx.fillText(`σ = −${fmt(sg)}`,sx(-sg)+4,H-16);
+    kResults.forEach(r=>{ctx.beginPath();ctx.arc(sx(r.s[0]),sy(r.s[1]),6,0,7);ctx.stroke();});
+  }
+  // overlays
+  ctx.font=`11px ${T.mono}`;
+  if(ovOn('segs')){ctx.strokeStyle=T.ov;ctx.globalAlpha=.35;ctx.lineWidth=9;ctx.lineCap='butt';ctx.beginPath();
+    A.segs.forEach(s=>{ctx.moveTo(isFinite(s[0])?sx(s[0]):-10,sy(0));ctx.lineTo(sx(s[1]),sy(0));});ctx.stroke();ctx.globalAlpha=1;}
+  if(ovOn('asym')&&A.asym){const as=A.asym;const R=Math.max(W,H)/view.s*2;ctx.strokeStyle=T.ov;ctx.lineWidth=1.3;ctx.setLineDash([7,5]);ctx.beginPath();
+    as.angles.forEach(a=>{const r=a*Math.PI/180;ctx.moveTo(sx(as.sigma),sy(0));ctx.lineTo(sx(as.sigma+R*Math.cos(r)),sy(R*Math.sin(r)));});ctx.stroke();ctx.setLineDash([]);
+    const cx=sx(as.sigma),cy=sy(0);ctx.fillStyle=T.ov;ctx.beginPath();ctx.moveTo(cx,cy-6);ctx.lineTo(cx+6,cy);ctx.lineTo(cx,cy+6);ctx.lineTo(cx-6,cy);ctx.closePath();ctx.fill();
+    ctx.textBaseline='bottom';ctx.fillText(`σₐ = ${fmt(as.sigma)}`,cx+7,cy-6);}
+  if(ovOn('brk')){ctx.fillStyle=T.ov;ctx.textBaseline='top';A.cand.filter(c=>c.status==='ok').forEach(c=>{
+    [c.s,...(c.isReal?[]:[[c.s[0],-c.s[1]]])].forEach((s,j)=>{const x=sx(s[0]),y=sy(s[1]);ctx.beginPath();ctx.rect(x-4.5,y-4.5,9,9);ctx.fill();
+      if(j===0)ctx.fillText(`${fmtC(s)} · K=${fmt(c.K)}`,x+7,y+6);});});}
+  if(ovOn('jw')){ctx.strokeStyle=T.ov;ctx.fillStyle=T.ov;ctx.lineWidth=2;ctx.textBaseline='middle';A.jw.forEach(c=>{
+    [c.w,-c.w].forEach((w,j)=>{if(j&&c.w===0)return;ctx.beginPath();ctx.arc(sx(0),sy(w),6,0,7);ctx.stroke();if(j===0)ctx.fillText(`${c.w>0?'j'+fmt(c.w):'0'} · K=${fmt(c.K)}`,sx(0)+10,sy(w));});});}
+  if(ovOn('dep')){ctx.strokeStyle=T.ov;ctx.fillStyle=T.ov;ctx.lineWidth=2;A.dep.forEach(d=>{
+    [[d.s,d.theta],[[d.s[0],-d.s[1]],-d.theta]].forEach(([s,th],j)=>{const r=th*Math.PI/180;const L=46;const x=sx(s[0]),y=sy(s[1]);
+      const sgn=d.kind==='pole'?1:-1;const ex=x+Math.cos(r)*L,ey=y-Math.sin(r)*L;
+      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.stroke();
+      const hx=sgn>0?ex:x,hy=sgn>0?ey:y,ang=Math.atan2(sgn>0?ey-y:y-ey,sgn>0?ex-x:x-ex);arrow(hx,hy,ang,8);
+      if(j===0){ctx.textBaseline='bottom';ctx.fillText(fmt(th,4)+'°',ex+4,ey-2);}});});}
+  // locus
+  if(locusOn()){ctx.strokeStyle=T.locus;ctx.lineWidth=2.2;ctx.lineJoin='round';ctx.lineCap='round';
+    for(const b of LOCUS){ctx.beginPath();let pen=false;for(const p of b){const X=sx(p[0]),Y=sy(p[1]);if(Math.abs(X)>2e4||Math.abs(Y)>2e4){pen=false;continue;}if(pen)ctx.lineTo(X,Y);else{ctx.moveTo(X,Y);pen=true;}}ctx.stroke();}
+    ctx.fillStyle=T.locus;for(const b of LOCUS){let acc=0;for(let i=1;i<b.length;i++){const X0=sx(b[i-1][0]),Y0=sy(b[i-1][1]),X1=sx(b[i][0]),Y1=sy(b[i][1]);const d=Math.hypot(X1-X0,Y1-Y0);acc+=d;
+      if(acc>70&&d>0.01){if(X1>0&&X1<W&&Y1>0&&Y1<H)arrow(X1,Y1,Math.atan2(Y1-Y0,X1-X0),9);break;}}}
+  }
+  // open-loop poles/zeros
+  ctx.strokeStyle=T.ink;ctx.lineWidth=2.3;ctx.lineCap='round';
+  for(const p of P){const x=sx(p[0]),y=sy(p[1]);ctx.beginPath();ctx.moveTo(x-6,y-6);ctx.lineTo(x+6,y+6);ctx.moveTo(x+6,y-6);ctx.lineTo(x-6,y+6);ctx.stroke();}
+  for(const z of Z){const x=sx(z[0]),y=sy(z[1]);ctx.fillStyle=T.panel;ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fill();ctx.stroke();}
+  // closed-loop poles
+  for(const r of CL){const x=sx(r[0]),y=sy(r[1]);if(x<-20||x>W+20||y<-20||y>H+20)continue;ctx.fillStyle=T.accent;ctx.strokeStyle=T.panel;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,5.5,0,7);ctx.fill();ctx.stroke();}
+  // probe
+  if(S.tool==='probe'&&S.probe){const pr=probeAt(S.probe);const X=sx(S.probe[0]),Y=sy(S.probe[1]);
+    ctx.lineWidth=1;ctx.globalAlpha=.6;
+    for(const p of P){ctx.strokeStyle=T.ink2;ctx.beginPath();ctx.moveTo(sx(p[0]),sy(p[1]));ctx.lineTo(X,Y);ctx.stroke();}
+    for(const z of Z){ctx.strokeStyle=T.good;ctx.beginPath();ctx.moveTo(sx(z[0]),sy(z[1]));ctx.lineTo(X,Y);ctx.stroke();}
+    ctx.globalAlpha=1;ctx.strokeStyle=pr.on?T.good:T.bad;ctx.lineWidth=2;ctx.beginPath();ctx.arc(X,Y,8,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(X-13,Y);ctx.lineTo(X-4,Y);ctx.moveTo(X+4,Y);ctx.lineTo(X+13,Y);ctx.moveTo(X,Y-13);ctx.lineTo(X,Y-4);ctx.moveTo(X,Y+4);ctx.lineTo(X,Y+13);ctx.stroke();
+    ctx.fillStyle=pr.on?T.good:T.bad;ctx.font=`11px ${T.mono}`;ctx.textBaseline='bottom';ctx.fillText(`∠ = ${fmt(pr.w,4)}°${pr.on?' · K = '+fmt(pr.K):''}`,X+12,Y-10);}
+  if(S.guided&&!locusOn()){ctx.fillStyle=T.ov;ctx.font=`600 13px ${T.mono}`;ctx.textBaseline='top';ctx.fillText(`Guided build · rule ${S.step+1} of 7 · locus hidden`,10,10);}
+  function arrow(x,y,a,s){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-s*Math.cos(a-.42),y-s*Math.sin(a-.42));ctx.lineTo(x-s*Math.cos(a+.42),y-s*Math.sin(a+.42));ctx.closePath();ctx.fill();}
+}
+
+// pointer interaction
+let drag=null,pan=null,raf=null;
+const ptr=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};};
+function hit(px,py){let best=null,bd=12;
+  const test=(kind,list)=>list.forEach((r,i)=>{[1,-1].forEach(sg=>{if(sg<0&&r.im<=1e-12)return;const d=Math.hypot(sx(r.re)-px,sy(sg*r.im)-py);if(d<bd){bd=d;best={kind,i};}});});
+  test('zero',S.zeros);test('pole',S.poles);return best;}
+function snap(v,alt){if(alt)return v;const u=niceStep(10/view.s);return Math.round(v/u)*u;}
+cv.addEventListener('pointerdown',e=>{
+  const {x,y}=ptr(e);const h=hit(x,y);const re=snap(dx(x),e.altKey);let im=Math.abs(snap(dy(y),e.altKey));if(Math.abs(dy(y))*view.s<9)im=0;
+  if(S.tool==='move'){if(h){drag={...h,wasReal:(h.kind==='pole'?S.poles:S.zeros)[h.i].im<=1e-12};customised();}else pan={x,y,cx:view.cx,cy:view.cy};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';}
+  else if(S.tool==='pole'){const np=[...S.poles,{re,im}];if(canChange(np,S.zeros)){S.poles=np;customised();systemChanged();}}
+  else if(S.tool==='zero'){const nz=[...S.zeros,{re,im}];if(canChange(S.poles,nz)){S.zeros=nz;customised();systemChanged();}}
+  else if(S.tool==='erase'){if(h)removePZ(h.kind,h.i);}
+  else if(S.tool==='probe'){let s=[dx(x),dy(y)];let bd=14;
+    for(const b of LOCUS)for(const p of b){const d=Math.hypot(sx(p[0])-x,sy(p[1])-y);if(d<bd){bd=d;s=[p[0],p[1]];}}
+    S.probe=s;S.probePinned=true;renderProbe();drawPlane();}
+});
+cv.addEventListener('pointermove',e=>{
+  const {x,y}=ptr(e);$('#coord').textContent='s = '+fmtC([dx(x),dy(y)]);
+  if(drag){const list=drag.kind==='pole'?S.poles:S.zeros;const r=list[drag.i];r.re=snap(dx(x),e.altKey);
+    r.im=drag.wasReal?0:Math.max(Math.abs(snap(dy(y),e.altKey)),niceStep(10/view.s));
+    if(!raf)raf=requestAnimationFrame(()=>{raf=null;systemChanged(false);});return;}
+  if(pan){view.cx=pan.cx-(x-pan.x)/view.s;view.cy=pan.cy+(y-pan.y)/view.s;drawPlane();return;}
+  if(S.tool==='probe'&&!S.probePinned){S.probe=[dx(x),dy(y)];renderProbe();drawPlane();}
+});
+const endDrag=()=>{if(drag){drag=null;cancelAnimationFrame(raf);raf=null;systemChanged(true);}pan=null;if(S.tool==='move')cv.style.cursor='grab';};
+cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+cv.addEventListener('pointerleave',()=>{$('#coord').textContent='s = —';});
+cv.addEventListener('wheel',e=>{e.preventDefault();const {x,y}=ptr(e);const bx=dx(x),by=dy(y);const f=Math.exp(-e.deltaY*.0015);view.s=Math.min(Math.max(view.s*f,.5),5e4);
+  view.cx=bx-(x-W/2)/view.s;view.cy=by+(y-H/2)/view.s;drawPlane();},{passive:false});
+$('#fitBtn').onclick=()=>{fitView();drawPlane();};
+
+// ---------- response canvas ----------
+const rc=$('#resp'),rx=rc.getContext('2d');let RW=0,RH=0;
+function rResize(){const r=rc.getBoundingClientRect();const dpr=window.devicePixelRatio||1;RW=r.width;RH=r.height;rc.width=Math.round(RW*dpr);rc.height=Math.round(RH*dpr);rx.setTransform(dpr,0,0,dpr,0,0);drawResp();}
+new ResizeObserver(rResize).observe(rc);
+function drawResp(){
+  if(!RW||!SIM)return;const T=tok();rx.clearRect(0,0,RW,RH);
+  const ml=46,mr=12,mt=10,mb=26,pw=RW-ml-mr,ph=RH-mt-mb;
+  const t1=SIM.tEnd;let ys=[...SIM.y];if(S.pinned)ys=ys.concat(S.pinned.y.filter((_,i)=>S.pinned.t[i]<=t1));
+  let y0=Math.min(0,...ys),y1=Math.max(...ys,isFinite(SIM.yss)?SIM.yss*1.1:0,.1);
+  if(!SIM.stable){const lim=Math.max(3*Math.max(1,Math.abs(SIM.yss)||1),2);y0=Math.max(y0,-lim);y1=Math.min(y1,lim);}
+  const pad=(y1-y0)*.06;y0-=pad;y1+=pad;
+  const X=t=>ml+t/t1*pw,Y=v=>mt+(1-(v-y0)/(y1-y0))*ph;
+  rx.font=`10px ${T.mono}`;rx.fillStyle=T.ink3;rx.strokeStyle=T.grid;rx.lineWidth=1;
+  const ts=niceStep(t1/6),vs=niceStep((y1-y0)/5);rx.beginPath();
+  for(let t=0;t<=t1+1e-9;t+=ts){const p=Math.round(X(t))+.5;rx.moveTo(p,mt);rx.lineTo(p,mt+ph);}
+  for(let v=Math.ceil(y0/vs)*vs;v<=y1;v+=vs){const p=Math.round(Y(v))+.5;rx.moveTo(ml,p);rx.lineTo(ml+pw,p);}rx.stroke();
+  rx.textBaseline='top';rx.textAlign='center';for(let t=0;t<=t1+1e-9;t+=ts)rx.fillText(fmt(+t.toPrecision(6)),X(t),mt+ph+5);
+  rx.textAlign='right';rx.textBaseline='middle';for(let v=Math.ceil(y0/vs)*vs;v<=y1;v+=vs)rx.fillText(fmt(+v.toPrecision(6)),ml-6,Y(v));
+  rx.textAlign='left';rx.textBaseline='bottom';rx.fillText('t (s)',ml+pw-30,mt+ph-2);
+  rx.save();rx.beginPath();rx.rect(ml,mt,pw,ph);rx.clip();
+  if(SIM.stable&&isFinite(SIM.yss)){rx.fillStyle=T.specfill;rx.fillRect(ml,Y(SIM.yss*1.02),pw,Math.abs(Y(SIM.yss*.98)-Y(SIM.yss*1.02)));
+    rx.strokeStyle=T.ink3;rx.setLineDash([4,4]);rx.beginPath();rx.moveTo(ml,Y(SIM.yss));rx.lineTo(ml+pw,Y(SIM.yss));rx.stroke();rx.setLineDash([]);}
+  if(S.pinned){rx.strokeStyle=T.ink3;rx.lineWidth=1.6;rx.setLineDash([6,4]);rx.beginPath();S.pinned.t.forEach((t,i)=>{if(t>t1)return;i?rx.lineTo(X(t),Y(S.pinned.y[i])):rx.moveTo(X(t),Y(S.pinned.y[i]));});rx.stroke();rx.setLineDash([]);}
+  rx.strokeStyle=T.accent;rx.lineWidth=2.2;rx.lineJoin='round';rx.beginPath();SIM.t.forEach((t,i)=>{const yy=Math.max(Math.min(SIM.y[i],y1+10*(y1-y0)),y0-10*(y1-y0));i?rx.lineTo(X(t),Y(yy)):rx.moveTo(X(t),Y(yy));});rx.stroke();
+  if(SIM.stable&&isFinite(SIM.tp)){const i=SIM.y.indexOf(Math.max(...SIM.y));rx.fillStyle=T.accent;rx.beginPath();rx.arc(X(SIM.t[i]),Y(SIM.y[i]),4,0,7);rx.fill();}
+  if(SIM.stable&&SIM.settled){rx.strokeStyle=T.spec;rx.lineWidth=1.2;rx.beginPath();rx.moveTo(X(SIM.ts),mt);rx.lineTo(X(SIM.ts),mt+ph);rx.stroke();rx.fillStyle=T.spec;rx.textBaseline='top';rx.fillText('Tₛ',X(SIM.ts)+3,mt+2);}
+  rx.restore();
+  rx.fillStyle=T.ink2;rx.textBaseline='top';rx.textAlign='right';rx.fillText(`K = ${fmt(S.K)}${S.pinned?`   pinned: K = ${fmt(S.pinned.K)} (dashed)`:''}`,ml+pw,mt+2);rx.textAlign='left';
+}
+
+// theme changes repaint the canvases
+const mq=matchMedia('(prefers-color-scheme: dark)');mq.addEventListener&&mq.addEventListener('change',()=>{drawPlane();drawResp();});
+new MutationObserver(()=>{drawPlane();drawResp();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+// ---------- boot ----------
+setTool('move');renderSpec();loadPreset(0);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawPlane();drawResp();});
+</script>
+
+</body>
+</html>
